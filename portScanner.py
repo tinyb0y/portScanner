@@ -50,7 +50,7 @@ def commands():
     helpPrint("RUN", "Run the selected module", "run")
     helpPrint("FULL SCAN", "Scan the whole network", "fullscan")
     helpPrint("BACK", "Go back to menu", "back")
-    helpPrint("EXIT", "Shut down portSpider", "exit")
+    helpPrint("EXIT", "Shut down portScanner", "exit")
     print()
 
 
