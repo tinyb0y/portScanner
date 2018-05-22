@@ -22,7 +22,7 @@ For example : the network format can be 192.168.31.0/24 (whole network), 192.168
   * **RUN** - Run the selected module - 'run'
   * **FULL SCAN** - Scan the whole network - 'fullscan'
   * **BACK** - Go back to menu - 'back'
-  * **EXIT** - Shut down portSpider - 'exit'
+  * **EXIT** - Shut down portScanner - 'exit'
 
 # Installing
 ## Linux(Debian)
