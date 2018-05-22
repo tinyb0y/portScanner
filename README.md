@@ -4,6 +4,8 @@ portScanner is a tool for scanning whole network or any number of hosts in a net
 
 For example : the network format can be 192.168.31.0/24 (whole network), 192.168.31.10-25(some hosts in the network), or a single host like 192.168.31.5 or 192.168.31.5/32
 
+[![asciicast](https://asciinema.org/a/3fWX1ufPwYUhfWdJIfeiECkro.png)](https://asciinema.org/a/3fWX1ufPwYUhfWdJIfeiECkro)
+
 # Modules
   * **http** - Scans for open ports Http Ports eg. 80,443,8080,8081,9090,9091
   * **mongodb** - Scans for MongoDb instances. eg: 27017
