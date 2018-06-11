@@ -1,10 +1,35 @@
+# ----------------------------------------------------------------------------#
+# Imports
+# ----------------------------------------------------------------------------#
 import argparse
 import nmap
-import json, os
-import datetime
+import json
 import ipaddress
 from colorama import Style, Fore
-import re
+import datetime
+import os
+
+from sqlalchemy import and_, exists
+
+from src.ftp_login import FTP_login
+from src.ssh_login import SSH_login
+from src.telnet_login import Telnet_login
+from src.rfunctions import *
+from models import *
+
+__author__ = "tinyb0y"
+__email__ = Fore.RED + "tinyb0y@protonmail.com"
+
+# ----------------------------------------------------------------------------#
+# App Config.
+# ----------------------------------------------------------------------------#
+
+engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=False)
+Session = sessionmaker(bind=engine)
+Session.configure(bind=engine)
+session = Session()
+
+attackVectorList = dict()
 
 # -----------------------------------------------------#
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
@@ -18,7 +43,6 @@ with open('Options.conf') as f:
 inModule = False
 allModules = []
 modules = []
-email = Fore.RED + "tinyb0y@protonmail.com"
 
 header = """
  _____ _             _      ___
@@ -27,8 +51,7 @@ header = """
   | | | | | | | |_| | |_) | |_| | |_| |
   |_| |_|_| |_|\__, |_.__/ \___/ \__, |
                |___/             |___/
-""" + "\t\t" + email
-
+""" + "\t\t" + __email__
 
 # -----------------------------------------------------#
 
@@ -65,7 +88,7 @@ def logFileCreation():
     script_path = os.path.dirname(os.path.realpath(__file__))
     if not os.path.exists(script_path + "/logs"):
         os.makedirs(script_path + "/logs")
-    dt = datetime.datetime.now()
+    dt = datetime.now()
     dt = str(dt).replace(" ", "_")
     dt = str(dt).replace(":", "-")
     fileName = script_path + "/logs/tinyb0y-ScanReport" + dt + ".log"
@@ -140,6 +163,58 @@ def getIPlist(ipvar):
         return [ipvar]
 
 
+# ----------------------------------------------------------------------------#
+# BruteForce Modules
+# ----------------------------------------------------------------------------#
+
+bruteforce_modules = [
+    ('ftp_login', (Controller, FTP_login)),
+    ('ssh_login', (Controller, SSH_login)),
+    ('telnet_login', (Controller, Telnet_login))
+]
+
+available = dict(bruteforce_modules)
+ssh = [22, 2222]
+telnet = [23]
+ftp = [21]
+
+
+def bruteforce():
+    for ip in attackVectorList.keys():
+        for port in attackVectorList[ip]:
+            modulename = ''
+            if port in ssh:
+                modulename = 'ssh_login'
+                ignoremseg = 'ignore:mesg=Authentication failed.'
+            elif port in telnet:
+                modulename = 'telnet_login'
+                ignoremseg = ''
+            elif port in ftp:
+                modulename = 'ftp_login'
+                ignoremseg = "ignore:mesg=Login incorrect."
+            else:
+                pass
+            if modulename != '':
+                print(
+                    Fore.RED + "[!] Brute Force Attack Going On " + Style.RESET_ALL + Fore.YELLOW + ip + Style.RESET_ALL + Fore.RED,
+                    "with modulename", Style.RESET_ALL, Fore.GREEN, modulename, END)
+                ctrl, module = available[modulename]
+                user = 'username'
+                passwd = 'password'
+                if getOptionValue('verbose') == 'true':
+                    powder = ctrl(module,
+                                  [modulename, 'host=' + ip, 'user=' + user, 'password=' + passwd, '-x', ignoremseg,
+                                   '-l', 'logs/'])
+                else:
+                    powder = ctrl(module,
+                                  [modulename, 'host=' + ip, 'user=' + user, 'password=' + passwd, '-x', ignoremseg])
+                powder.fire()
+
+
+# ----------------------------------------------------------------------------#
+# Scanning
+# ----------------------------------------------------------------------------#
+
 def scan(IP, options):
     fileName = logFileCreation()
     IPList = getIPlist(IP)
@@ -155,8 +230,13 @@ def scan(IP, options):
         try:
             if nm[ip].all_protocols():
                 PrintOnScreen(ip, nm, fileName)
+            else:
+                print(nm[ip].all_protocols())
         except:
             pass
+    if getOptionValue('bruteforce') == 'true' or getOptionValue('bruteforce') == 'True':
+        bruteforce()
+
     print("Logs are saved in " + fileName)
 
 
@@ -164,7 +244,7 @@ def scan_from_file(options):
     fileName = logFileCreation()
     IPListFromFile = getListfromFile(getOptionValue('filename'))
     for IP in IPListFromFile:
-        IPList =  getIPlist(IP)
+        IPList = getIPlist(IP)
         for ip in IPList:
             print(ip)
             if 'p' in options:
@@ -178,12 +258,30 @@ def scan_from_file(options):
                     PrintOnScreen(ip, nm, fileName)
             except:
                 pass
+    if getOptionValue('bruteforce') == 'true' or getOptionValue('bruteforce') == 'True':
+        bruteforce()
+
     print("Logs are saved in " + fileName)
 
 
 def getListfromFile(filename):
     iplist = open(filename).read().split()
     return iplist
+
+
+def insertRecord(ip, service, port):
+    if session.query(exists().where(and_(Scan.port == port, Scan.ip == ip))).scalar():
+        row = session.query(Scan).filter(and_(Scan.port == port, Scan.ip == ip)).first()
+        row.port = port
+        row.service = service
+        row.ip = ip
+        row.updated = datetime.now()
+        session.commit()
+
+    else:
+        scanRecord = Scan(ip=ip, service=service, port=port, updated=datetime.now())
+        session.add(scanRecord)
+        session.commit()
 
 
 def PrintOnScreen(host, nm, fileName):
@@ -198,12 +296,11 @@ def PrintOnScreen(host, nm, fileName):
 
         finalStr += " " * (
             (len(host) + 4)) + "|_ " + Fore.GREEN + Style.DIM + "Hostname" + Style.RESET_ALL + " : %s" % (
-        hostname) + '\n'
+                        hostname) + '\n'
 
         if nm[host].all_protocols():
             finalStr += " " * (len(host) + 4) + "|_ " + Fore.GREEN + Style.DIM + "Ports" + Style.RESET_ALL + '\n'
             for proto in nm[host].all_protocols():
-
                 ports = list(nm[host][proto].keys())
                 ports.sort()
                 finalStr += " " * ((len(
@@ -211,15 +308,23 @@ def PrintOnScreen(host, nm, fileName):
                 finalStr += " " * (len(host) + 4) + "|" + '\t\tPort\t\tState\t\tServiceVersion' + '\n'
                 finalStr += " " * (len(host) + 4) + "|" + '\t\t====\t\t=====\t\t==============' + '\n'
                 for port in ports:
-                    VersionString = nm[host][proto][port]['product'] + " " + nm[host][proto][port][
-                        'version'] + " ExtraInfo: " + nm[host][proto][port]['extrainfo'] + " " + nm[host][proto][port][
-                                        'cpe']
-                    finalStr += " " * (len(host) + 4) + "|" + '\t\t%s\t\t%s\t\t%s' % (
-                    port, nm[host][proto][port]['state'], VersionString) + '\n'
+                    if nm[host][proto][port]['state'] == "open":
+                        if host not in attackVectorList:
+                            attackVectorList[host] = [port]
+                        else:
+                            attackVectorList[host].append(port)
+                        VersionString = nm[host][proto][port]['product'] + " " + nm[host][proto][port][
+                            'version'] + " ExtraInfo: " + nm[host][proto][port]['extrainfo'] + " " + \
+                                        nm[host][proto][port][
+                                            'cpe']
+                        finalStr += " " * (len(host) + 4) + "|" + '\t\t%s\t\t%s\t\t%s' % (
+                            port, nm[host][proto][port]['state'], VersionString) + '\n'
+                        insertRecord(host, VersionString, port)
+
         else:
             finalStr += " " * ((len(
                 host) + 4)) + "|_ " + Fore.GREEN + Style.DIM + "Ports" + Style.RESET_ALL + " : %s" % (
-                (Fore.YELLOW + "-none-")) + '\n'
+                            (Fore.YELLOW + "-none-")) + '\n'
 
         finalStr += " " * (
             (len(host) + 4)) + "|_ " + Fore.GREEN + Style.DIM + "OS fingerprinting" + Style.RESET_ALL + '\n'
@@ -387,16 +492,23 @@ def commandHandler(command):
               + "'. Type '" + Fore.YELLOW + "help" + Fore.RED + "' for all available commands." + END)
 
 
+# ----------------------------------------------------------------------------#
+# Launch.
+# ----------------------------------------------------------------------------#
+
 if __name__ == "__main__":
+
+    multiprocessing.freeze_support()
     parser = argparse.ArgumentParser(description="portSpider")
     parser.add_argument("--test", action='store_true')
     args, leftovers = parser.parse_known_args()
+
+    # os.system("python app.py ")
 
     if args.test:
         print("Test build detected. Exiting...")
         exit()
     print(Fore.GREEN + header + END + Style.RESET_ALL)
-
     while True:
 
         if inModule:
@@ -410,6 +522,6 @@ if __name__ == "__main__":
             print(Fore.GREEN + "\n[I] Shutting down..." + END)
             raise SystemExit
         except Exception as e:
-            print(Fore.RED  + "\n[!] portSpider crashed...\n[!] Debug info: \n")
+            print(Fore.RED + "\n[!] portSpider crashed...\n[!] Debug info: \n")
             print("\n" + END)
             exit()

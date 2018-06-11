@@ -70,6 +70,12 @@ For example : the network format can be 192.168.31.0/24 (whole network), 192.168
     tinyb0y/http $> run
     Logs are saved in logs/ directory
   ```
+  
+  ### Starting the web server
+  ```
+    > python3 app.py 
+  ```
+  
   # Disclaimer:
   I'm not responsible for anything you do with this program, so please only use it for good and educational purposes.
 
