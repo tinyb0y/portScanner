@@ -27,7 +27,7 @@ class Scan(Base):
 
 
 # Create tables.
-filename = basedir + '/database.db'
+sqlfilename = basedir + '/database.db'
 # print(filename)
-if not os.path.exists(filename):
+if not os.path.exists(sqlfilename):
     Base.metadata.create_all(bind=engine)

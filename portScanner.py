@@ -92,7 +92,6 @@ def logFileCreation():
     dt = str(dt).replace(" ", "_")
     dt = str(dt).replace(":", "-")
     fileName = script_path + "/logs/tinyb0y-ScanReport" + dt + ".log"
-    print(fileName)
     file = open(fileName, 'w')
     file.write("Scan Report using Tinyb0y PortScanner " + str(dt))
     file.close()
@@ -101,6 +100,10 @@ def logFileCreation():
 
 def writeScanEvents(fileName, eventScan):
     file = open(fileName, "a")
+    # print("*"*50)
+    # print("Writing to FIlename", fileName)
+    # print(eventScan)
+    # print("*" * 50)
     file.write(eventScan)
     file.close()
 
@@ -186,12 +189,20 @@ def bruteforce():
             if port in ssh:
                 modulename = 'ssh_login'
                 ignoremseg = 'ignore:mesg=Authentication failed.'
+                FILE0 = basedir + getOptionValue('userFile')
+                FILE1 = basedir + getOptionValue('passFile')
             elif port in telnet:
                 modulename = 'telnet_login'
-                ignoremseg = ''
+                ignoremseg1 = 'ignore:egrep="Login incorrect."'
+                ignoremseg2 = 'ignore:fgrep="Password:"'
+                FILE0 = basedir + getOptionValue('userFile')
+                FILE1 = basedir + getOptionValue('passFile')
             elif port in ftp:
                 modulename = 'ftp_login'
-                ignoremseg = "ignore:mesg=Login incorrect."
+                ignoremseg = 'ignore:mesg=Login incorrect.'
+                FILE0 = basedir + getOptionValue('userFile')
+                FILE1 = basedir + getOptionValue('passFile')
+
             else:
                 pass
             if modulename != '':
@@ -199,15 +210,28 @@ def bruteforce():
                     Fore.RED + "[!] Brute Force Attack Going On " + Style.RESET_ALL + Fore.YELLOW + ip + Style.RESET_ALL + Fore.RED,
                     "with modulename", Style.RESET_ALL, Fore.GREEN, modulename, END)
                 ctrl, module = available[modulename]
-                user = 'username'
-                passwd = 'password'
+                user = 'FILE0\n'
+                passwd = 'FILE1'
                 if getOptionValue('verbose') == 'true':
-                    powder = ctrl(module,
-                                  [modulename, 'host=' + ip, 'user=' + user, 'password=' + passwd, '-x', ignoremseg,
-                                   '-l', 'logs/'])
+                    if modulename == 'telnet_login':
+                        powder = ctrl(module, [modulename, 'host=' + ip, 'inputs=FILE0\nFILE1', '0=' + FILE0, '1=' + FILE1,
+                                               'persistent=0', 'prompt_re="Username:|Password:"', '-x', ignoremseg1, '-x', ignoremseg2, '-l', 'logs/'])
+                    elif modulename == 'ftp_login':
+                        powder = ctrl(module,
+                                      [modulename, 'host=' + ip, 'user=' + user, 'password=' + passwd, '0=' + FILE0,
+                                       '1=' + FILE1, '-x', ignoremseg,
+                                       '-l', 'logs/'])
+                    elif modulename == 'ssh_login':
+                        powder = ctrl(module,
+                                      [modulename, 'host=' + ip, 'user=' + user, 'password=' + passwd, '0=' + FILE0,
+                                       '1=' + FILE1, '-x', ignoremseg,
+                                       '-l', 'logs/'])
+                    else:
+                        print("[-] No Module to bruteforce")
                 else:
                     powder = ctrl(module,
-                                  [modulename, 'host=' + ip, 'user=' + user, 'password=' + passwd, '-x', ignoremseg])
+                                  [modulename, 'host=' + ip, 'user=' + user, 'password=' + passwd, '0=' + FILE0,
+                                   '1=' + FILE1, '-x', ignoremseg])
                 powder.fire()
 
 
@@ -516,12 +540,12 @@ if __name__ == "__main__":
         else:
             inputHeader = Fore.BLUE + "tinyb0y $> " + END
 
-        try:
-            commandHandler(input(inputHeader))
-        except KeyboardInterrupt:
-            print(Fore.GREEN + "\n[I] Shutting down..." + END)
-            raise SystemExit
-        except Exception as e:
-            print(Fore.RED + "\n[!] portSpider crashed...\n[!] Debug info: \n")
-            print("\n" + END)
-            exit()
+        # try:
+        commandHandler(input(inputHeader))
+        # except KeyboardInterrupt:
+        #     print(Fore.GREEN + "\n[I] Shutting down..." + END)
+        #     raise SystemExit
+        # except Exception as e:
+        #     print(Fore.RED + "\n[!] portSpider crashed...\n[!] Debug info: \n")
+        #     print("\n" + END)
+        #     exit()

@@ -3,13 +3,12 @@ ipaddress
 colorama
 paramiko
 pycurl
-ajpy
 pyopenssl
 mysqlclient
 psycopg2
 pycrypto
 dnspython
-IPy
 pysnmp
 pyasn1
 Flask-SQLAlchemy
+IPy
