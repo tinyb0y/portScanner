@@ -540,12 +540,12 @@ if __name__ == "__main__":
         else:
             inputHeader = Fore.BLUE + "tinyb0y $> " + END
 
-        # try:
-        commandHandler(input(inputHeader))
-        # except KeyboardInterrupt:
-        #     print(Fore.GREEN + "\n[I] Shutting down..." + END)
-        #     raise SystemExit
-        # except Exception as e:
-        #     print(Fore.RED + "\n[!] portSpider crashed...\n[!] Debug info: \n")
-        #     print("\n" + END)
-        #     exit()
+        try:
+            commandHandler(input(inputHeader))
+        except KeyboardInterrupt:
+            print(Fore.GREEN + "\n[I] Shutting down..." + END)
+            raise SystemExit
+        except Exception as e:
+            print(Fore.RED + "\n[!] portSpider crashed...\n[!] Debug info: \n")
+            print("\n" + END)
+            exit()
