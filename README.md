@@ -36,6 +36,15 @@ For example : the network format can be 192.168.31.0/24 (whole network), 192.168
   $ python3 -m pip install -r requirements.txt
 ```
 # Usage:
+  ### Settings in app.cfg
+  
+  ```
+  options = -sV
+  cores=8
+  ```
+  
+  You may add more options like -O for OS Detection (Scan time may take a little longer for matching the nmap signatures)
+  
   ### Start portScanner with python3:
   ```
   > python3 portScanner.py
