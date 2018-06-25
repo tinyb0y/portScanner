@@ -1,3 +1,14 @@
+"""
+
+portScanner is a tool for scanning whole network or any number of hosts in a network
+to find open ports and vulnerable services running on the machine.
+
+For example : the network format can be 192.168.31.0/24 (whole network),
+192.168.31.10-25(some hosts in the network), or a single host like 192.168.31.5
+or 192.168.31.5/32
+
+"""
+
 # ----------------------------------------------------------------------------#
 # Imports
 # ----------------------------------------------------------------------------#
@@ -7,7 +18,6 @@ import json
 import ipaddress
 from colorama import Style, Fore
 import datetime
-import os
 
 from sqlalchemy import and_, exists
 
@@ -16,6 +26,11 @@ from src.ssh_login import SSH_login
 from src.telnet_login import Telnet_login
 from src.rfunctions import *
 from models import *
+import configparser
+from multiprocessing import Pool
+from functools import partial
+
+import os
 
 __author__ = "tinyb0y"
 __email__ = Fore.RED + "tinyb0y@protonmail.com"
@@ -24,6 +39,10 @@ __email__ = Fore.RED + "tinyb0y@protonmail.com"
 # App Config.
 # ----------------------------------------------------------------------------#
 
+basedir = os.path.abspath(os.path.dirname(__file__)) + '/'
+config = configparser.ConfigParser()
+config.read(basedir + 'app.cfg')
+
 engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=False)
 Session = sessionmaker(bind=engine)
 Session.configure(bind=engine)
@@ -31,19 +50,16 @@ session = Session()
 
 attackVectorList = dict()
 
-# -----------------------------------------------------#
+# ----------------------------------------------------------------------------#
 ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 END = '\033[0m'
 
-additional_options = ' -sV'
-
-with open('Options.conf') as f:
-    data = json.load(f)
+additional_options = ' ' + config['DEFAULT']['options']
 
 inModule = False
 allModules = []
 modules = []
-
+cores = int(config['DEFAULT']['cores'])
 header = """
  _____ _             _      ___
 |_   _(_)_ __  _   _| |__  / _ \ _   _
@@ -53,11 +69,21 @@ header = """
                |___/             |___/
 """ + "\t\t" + __email__
 
+
 # -----------------------------------------------------#
 
-for item in data:
-    allModules.append([item['option'], item['help']])
-    modules.append(item['option'])
+
+def loadConfig():
+    with open('Options.conf') as f:
+        data = json.load(f)
+    return data
+
+
+def loadModules():
+    data = loadConfig()
+    for item in data:
+        allModules.append([item['option'], item['help']])
+        modules.append(item['option'])
 
 
 def helpPrint(name, desc, usage):
@@ -110,6 +136,7 @@ def writeScanEvents(fileName, eventScan):
 
 def getModuleOptions(module):
     commands_for_current_module = []
+    data = loadConfig()
     if inModule:
         for item in data:
             if item['option'] == module:
@@ -214,8 +241,10 @@ def bruteforce():
                 passwd = 'FILE1'
                 if getOptionValue('verbose') == 'true':
                     if modulename == 'telnet_login':
-                        powder = ctrl(module, [modulename, 'host=' + ip, 'inputs=FILE0\nFILE1', '0=' + FILE0, '1=' + FILE1,
-                                               'persistent=0', 'prompt_re="Username:|Password:"', '-x', ignoremseg1, '-x', ignoremseg2, '-l', 'logs/'])
+                        powder = ctrl(module,
+                                      [modulename, 'host=' + ip, 'inputs=FILE0\nFILE1', '0=' + FILE0, '1=' + FILE1,
+                                       'persistent=0', 'prompt_re="Username:|Password:"', '-x', ignoremseg1, '-x',
+                                       ignoremseg2, '-l', 'logs/'])
                     elif modulename == 'ftp_login':
                         powder = ctrl(module,
                                       [modulename, 'host=' + ip, 'user=' + user, 'password=' + passwd, '0=' + FILE0,
@@ -239,29 +268,73 @@ def bruteforce():
 # Scanning
 # ----------------------------------------------------------------------------#
 
+# def scan(IP, options):
+#     fileName = logFileCreation()
+#     IPList = getIPlist(IP)
+#     for ip in IPList:
+#         if 'p' in options:
+#             nm = nmap.PortScanner()
+#             nm.scan(ip, arguments=options + additional_options)
+#             # print(nm.command_line())
+#         else:
+#             nm = nmap.PortScanner()
+#             nm.scan(ip, options, arguments=additional_options)
+#             # print(nm.command_line())
+#         try:
+#             if nm[ip].all_protocols():
+#                 PrintOnScreen(ip, nm, fileName)
+#             else:
+#                 print(nm[ip].all_protocols())
+#         except:
+#             pass
+#     if getOptionValue('bruteforce') == 'true' or getOptionValue('bruteforce') == 'True':
+#         bruteforce()
+#
+#     print("Logs are saved in " + fileName)
+
+def checkToPrint(nm, host):
+    for proto in nm[host].all_protocols():
+        ports = list(nm[host][proto].keys())
+        for port in ports:
+            print(nm[host][proto])
+            if nm[host][proto][port]['state'] == "open":
+                return True
+    return False
+
+
+def scanMulti(ip, args):
+    options = args[0]
+    fileName = args[1]
+    if 'p' in options:
+        nm = nmap.PortScanner()
+        nm.scan(ip, arguments=options + additional_options)
+        # print(nm.command_line())
+    else:
+        nm = nmap.PortScanner()
+        nm.scan(ip, options, arguments=additional_options)
+        # print(nm.command_line())
+    try:
+        if checkToPrint(nm, ip):
+            PrintOnScreen(ip, nm, fileName)
+        else:
+            pass
+            # print(nm[ip].all_protocols())
+    except:
+        writeScanEvents(fileName, ip)
+
+
 def scan(IP, options):
     fileName = logFileCreation()
     IPList = getIPlist(IP)
-    for ip in IPList:
-        if 'p' in options:
-            nm = nmap.PortScanner()
-            nm.scan(ip, arguments=options + additional_options)
-            # print(nm.command_line())
-        else:
-            nm = nmap.PortScanner()
-            nm.scan(ip, options, arguments=additional_options)
-            # print(nm.command_line())
-        try:
-            if nm[ip].all_protocols():
-                PrintOnScreen(ip, nm, fileName)
-            else:
-                print(nm[ip].all_protocols())
-        except:
-            pass
+    pool = Pool(processes=cores)
+    args = [options, fileName]
+    pool.map(partial(scanMulti, args=args), IPList)
+
     if getOptionValue('bruteforce') == 'true' or getOptionValue('bruteforce') == 'True':
         bruteforce()
 
     print("Logs are saved in " + fileName)
+    print()
 
 
 def scan_from_file(options):
@@ -269,23 +342,27 @@ def scan_from_file(options):
     IPListFromFile = getListfromFile(getOptionValue('filename'))
     for IP in IPListFromFile:
         IPList = getIPlist(IP)
-        for ip in IPList:
-            print(ip)
-            if 'p' in options:
-                nm = nmap.PortScanner()
-                nm.scan(ip, arguments=options + additional_options)
-            else:
-                nm = nmap.PortScanner()
-                nm.scan(ip, options, arguments=additional_options)
-            try:
-                if nm[ip].all_protocols():
-                    PrintOnScreen(ip, nm, fileName)
-            except:
-                pass
+        pool = Pool(processes=cores)
+        args = [options, fileName]
+        pool.map(partial(scanMulti, args=args), IPList)
+        # for ip in IPList:
+        #     # print(ip)
+        #     if 'p' in options:
+        #         nm = nmap.PortScanner()
+        #         nm.scan(ip, arguments=options + additional_options)
+        #     else:
+        #         nm = nmap.PortScanner()
+        #         nm.scan(ip, options, arguments=additional_options)
+        #     try:
+        #         if nm[ip].all_protocols():
+        #             PrintOnScreen(ip, nm, fileName)
+        #     except:
+        #         pass
     if getOptionValue('bruteforce') == 'true' or getOptionValue('bruteforce') == 'True':
         bruteforce()
 
     print("Logs are saved in " + fileName)
+    print()
 
 
 def getListfromFile(filename):
@@ -485,6 +562,7 @@ def commandHandler(command):
     # EXIT
     elif command == "exit":
         print(Fore.GREEN + "[I] Shutting down..." + END)
+        print()
         raise SystemExit
 
     # MODULES
@@ -498,6 +576,7 @@ def commandHandler(command):
     elif command == "clear" or command == "cls":
         os.system("clear||cls")
         print(Fore.RED + header + END)
+        print()
 
     # DEBUG
     elif command == "debug":
@@ -505,6 +584,7 @@ def commandHandler(command):
             print("inModule: " + str(inModule))
             print(currentModule)
             print(moduleOptions)
+            print()
         except:
             pass
 
@@ -521,7 +601,7 @@ def commandHandler(command):
 # ----------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-
+    loadModules()
     multiprocessing.freeze_support()
     parser = argparse.ArgumentParser(description="portSpider")
     parser.add_argument("--test", action='store_true')
