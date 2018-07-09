@@ -37,14 +37,14 @@ For example : the network format can be 192.168.31.0/24 (whole network), 192.168
 ```
 # Usage:
   ### Settings in app.cfg
-  
+
   ```
   options = -sV
   cores=8
   ```
-  
+
   You may add more options like -O for OS Detection (Scan time may take a little longer for matching the nmap signatures)
-  
+
   ### Start portScanner with python3:
   ```
   > python3 portScanner.py
@@ -79,12 +79,44 @@ For example : the network format can be 192.168.31.0/24 (whole network), 192.168
     tinyb0y/http $> run
     Logs are saved in logs/ directory
   ```
-  
+
+  ### Running portScanner with Command Line Arguments
+  ```
+    > python3 portScanner.py -h
+    usage: portScanner.py [-h] [--interactive INTERACTIVE] [--module MODULE]
+                          [--network NETWORK] [--port PORT] [--verbose VERBOSE]
+                          [--filename FILENAME] [--bruteforce BRUTEFORCE] [--test]
+
+    portScanner
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --interactive INTERACTIVE, -i INTERACTIVE
+                            1 for Interactive Mode, 0 for Commandline (default: 1)
+      --module MODULE, -m MODULE
+                            Module name to scan -> http telnet mysql ssh ftp
+                            printer fullscan (default: fullscan)
+      --network NETWORK, -n NETWORK
+                            Network to scan (default: None)
+      --port PORT, -p PORT  Port to scan (default: None)
+      --verbose VERBOSE, -v VERBOSE
+                            Verbose Level (default: True)
+      --filename FILENAME, -f FILENAME
+                            Absolute Path of the filename (default: True)
+      --bruteforce BRUTEFORCE, -b BRUTEFORCE
+                            Brute Attack (default: False)
+      --test
+  ```
+  ```
+  > python3 portScanner.py -i 0 -m fullscan -n 192.168.31.5
+  ```
+  -i 0 for commandline mode
+
   ### Starting the web server
   ```
-    > python3 app.py 
+    > python3 app.py
   ```
-  
+
   # Disclaimer:
   I'm not responsible for anything you do with this program, so please only use it for good and educational purposes.
 
