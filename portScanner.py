@@ -296,7 +296,7 @@ def checkToPrint(nm, host):
     for proto in nm[host].all_protocols():
         ports = list(nm[host][proto].keys())
         for port in ports:
-            print(nm[host][proto])
+            # print(nm[host][proto])
             if nm[host][proto][port]['state'] == "open":
                 return True
     return False
@@ -596,6 +596,14 @@ def commandHandler(command):
               + "'. Type '" + Fore.YELLOW + "help" + Fore.RED + "' for all available commands." + END)
 
 
+def NonInteractiveMode(module,network, port, verbose):
+    commandHandler("use "+ module)
+    commandHandler("set network " + network)
+    if port is not None:
+        commandHandler("set port " + port)
+    commandHandler("run")
+    print()
+
 # ----------------------------------------------------------------------------#
 # Launch.
 # ----------------------------------------------------------------------------#
@@ -603,29 +611,47 @@ def commandHandler(command):
 if __name__ == "__main__":
     loadModules()
     multiprocessing.freeze_support()
-    parser = argparse.ArgumentParser(description="portSpider")
+    parser = argparse.ArgumentParser(description="portScanner", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('--interactive','-i', help="1 for Interactive Mode, 0 for Commandline", default=1)
+    parser.add_argument('--module','-m', help="Module name to scan -> " + " ".join([m for m in modules]), default='fullscan')
+    parser.add_argument('--network','-n', help="Network to scan")
+    parser.add_argument('--port','-p', help="Port to scan", default=None)
+    parser.add_argument('--verbose','-v', help="Verbose Level", default=True)
+    parser.add_argument('--filename', '-f', help="Absolute Path of the filename", default=True)
+    parser.add_argument('--bruteforce', '-b', help="Brute Attack", default=False)
     parser.add_argument("--test", action='store_true')
     args, leftovers = parser.parse_known_args()
 
-    # os.system("python app.py ")
+    if args.interactive == '0':
+        # print(args.module)
+        # print(args.network)
+        # print(args.verbose)
+        NonInteractiveMode(args.module,args.network,args.port,args.verbose)
 
-    if args.test:
-        print("Test build detected. Exiting...")
-        exit()
-    print(Fore.GREEN + header + END + Style.RESET_ALL)
-    while True:
 
-        if inModule:
-            inputHeader = Fore.BLUE + "tinyb0y" + Fore.RED + "/" + currentModule + Fore.BLUE + " $> " + END
-        else:
-            inputHeader = Fore.BLUE + "tinyb0y $> " + END
+    else:
+        # os.system("python app.py ")
 
-        try:
-            commandHandler(input(inputHeader))
-        except KeyboardInterrupt:
-            print(Fore.GREEN + "\n[I] Shutting down..." + END)
-            raise SystemExit
-        except Exception as e:
-            print(Fore.RED + "\n[!] portSpider crashed...\n[!] Debug info: \n")
-            print("\n" + END)
+        if args.test:
+            print("Test build detected. Exiting...")
             exit()
+        print(Fore.GREEN + header + END + Style.RESET_ALL)
+        while True:
+
+            if inModule:
+                inputHeader = Fore.BLUE + "tinyb0y" + Fore.RED + "/" + currentModule + Fore.BLUE + " $> " + END
+            else:
+                inputHeader = Fore.BLUE + "tinyb0y $> " + END
+
+            try:
+                commandHandler(input(inputHeader))
+            except KeyboardInterrupt:
+                print(Fore.GREEN + "\n[I] Shutting down..." + END)
+                raise SystemExit
+            except Exception as e:
+                print()
+                print(Fore.Red + str(e) + END)
+                print(Fore.RED + "\n[!] portScanner crashed...\n[!] Debug info: \n")
+                print("\n" + END)
+                exit()
